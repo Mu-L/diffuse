@@ -26,7 +26,7 @@ class Arsc private constructor(
     @JvmName("create")
     fun Input.toArsc(): Arsc {
       val chunk = toBinaryResourceFile().chunks.single()
-      check(chunk is ResourceTableChunk) { "Root arsc chunk is not a resource table " }
+      check(chunk is ResourceTableChunk) { "Root arsc chunk is not a resource table" }
 
       val configs = mutableListOf<String>()
       val entries = mutableMapOf<Int, Entry>()
