@@ -1,8 +1,12 @@
-plugins {
-  alias(libs.plugins.kotlin.jvm)
-}
+apply plugin: 'org.jetbrains.kotlin.jvm'
+apply plugin: 'com.vanniktech.maven.publish'
+apply plugin: 'org.jetbrains.dokka'
 
 dependencies {
   api libs.okio
   implementation libs.byteunits
+
+  testImplementation libs.junit
+  testImplementation libs.assertk
+  testImplementation projects.testHelpers
 }
