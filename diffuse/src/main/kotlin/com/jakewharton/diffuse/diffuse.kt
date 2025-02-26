@@ -3,8 +3,10 @@
 package com.jakewharton.diffuse
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.ParameterHolder
+import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
@@ -35,6 +37,7 @@ import com.jakewharton.diffuse.format.Method
 import com.jakewharton.diffuse.info.AabInfo
 import com.jakewharton.diffuse.info.AarInfo
 import com.jakewharton.diffuse.info.ApkInfo
+import com.jakewharton.diffuse.info.DexInfo
 import com.jakewharton.diffuse.info.JarInfo
 import com.jakewharton.diffuse.io.Input
 import com.jakewharton.diffuse.io.Input.Companion.asInput
@@ -49,9 +52,8 @@ fun main(vararg args: String) {
   val defaultFs = FileSystems.getDefault()
   val systemOut = System.out
 
-  val version = NoOpCliktCommand::class.java.`package`.implementationVersion
   NoOpCliktCommand(name = "diffuse")
-    .versionOption(version)
+    .versionOption(diffuseVersion)
     .subcommands(
       DiffCommand(defaultFs, defaultFs, systemOut),
       InfoCommand(defaultFs, defaultFs, systemOut),
@@ -61,7 +63,11 @@ fun main(vararg args: String) {
 }
 
 private enum class BinaryType {
-  Apk, Aar, Aab, Jar, Dex
+  Apk,
+  Aar,
+  Aab,
+  Jar,
+  Dex,
 }
 
 private fun ParameterHolder.binaryType(): OptionWithValues<BinaryType, BinaryType, String> {
@@ -71,12 +77,15 @@ private fun ParameterHolder.binaryType(): OptionWithValues<BinaryType, BinaryTyp
       "--aar" to BinaryType.Aar,
       "--aab" to BinaryType.Aab,
       "--jar" to BinaryType.Jar,
+      "--dex" to BinaryType.Dex,
     )
     .default(BinaryType.Apk)
 }
 
 private enum class ReportType {
-  Text, Html, None
+  Text,
+  Html,
+  None,
 }
 
 private fun ParameterHolder.mappingFile(name: String): OptionWithValues<ApiMapping, ApiMapping, ApiMapping> {
@@ -136,7 +145,10 @@ private class InfoCommand(
   inputFs: FileSystem,
   outputFs: FileSystem,
   output: PrintStream,
-) : CliktCommand(name = "info", help = "Display info about a binary.") {
+) : CliktCommand("info") {
+  override fun help(context: Context) =
+    "Display info about a binary."
+
   private val type by binaryType()
   private val outputOptions by OutputOptions(outputFs, output)
   private val file by argument("FILE", help = "Input file.")
@@ -148,7 +160,7 @@ private class InfoCommand(
       BinaryType.Aar -> AarInfo(file.asInput().toAar())
       BinaryType.Aab -> AabInfo(file.asInput().toAab())
       BinaryType.Jar -> JarInfo(file.asInput().toJar())
-      BinaryType.Dex -> error("Unsupported")
+      BinaryType.Dex -> DexInfo(file.asInput().toDex())
     }
     outputOptions.write(info)
   }
@@ -158,7 +170,10 @@ private class DiffCommand(
   inputFs: FileSystem,
   outputFs: FileSystem,
   output: PrintStream,
-) : CliktCommand(name = "diff", help = "Display changes between two binaries.") {
+) : CliktCommand("diff") {
+  override fun help(context: Context) =
+    "Display changes between two binaries."
+
   private val inputOptions by object : OptionGroup("Input options") {
     private val type by binaryType()
 
@@ -171,7 +186,7 @@ private class DiffCommand(
         BinaryType.Aab -> BinaryDiff.ofAab(old.toAab(), new.toAab())
         BinaryType.Aar -> BinaryDiff.ofAar(old.toAar(), oldMapping, new.toAar(), newMapping)
         BinaryType.Jar -> BinaryDiff.ofJar(old.toJar(), oldMapping, new.toJar(), newMapping)
-        BinaryType.Dex -> error("Unsupported")
+        BinaryType.Dex -> BinaryDiff.ofDex(old.toDex(), oldMapping, new.toDex(), newMapping)
       }
     }
   }
@@ -193,7 +208,10 @@ private class DiffCommand(
 private class MembersCommand(
   inputFs: FileSystem,
   private val stdout: PrintStream,
-) : CliktCommand(name = "members", help = "List methods or fields of a binary.") {
+) : CliktCommand("members") {
+  override fun help(context: Context) =
+    "List methods or fields of a binary."
+
   private val binary by argument("FILE", help = "Input file.")
     .path(mustExist = true, canBeDir = false, mustBeReadable = true, fileSystem = inputFs)
 
@@ -212,7 +230,9 @@ private class MembersCommand(
     .default(Type.All)
 
   enum class Type {
-    All, Methods, Fields
+    All,
+    Methods,
+    Fields,
   }
 
   private val ownership by option(help = "Item ownerships to display. Default is both (declared and referenced).")
@@ -220,7 +240,9 @@ private class MembersCommand(
     .default(Ownership.All)
 
   enum class Ownership {
-    All, Declared, Referenced
+    All,
+    Declared,
+    Referenced,
   }
 
   override fun run() {
